@@ -522,6 +522,67 @@ export default function Home() {
 
           <div className="form-group">
             <label className="optional">Optional Context</label>
+            <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f9fafb', borderRadius: '8px', border: '1px dashed #d1d5db' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                {!isRecordingContext ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={startRecordingContext}
+                      style={{
+                        background: '#8b5cf6',
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.9rem',
+                        color: 'white',
+                      }}
+                    >
+                      🎤 Record Context
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => contextFileInputRef.current?.click()}
+                      disabled={isTranscribingContext}
+                      style={{
+                        background: '#7c3aed',
+                        padding: '0.5rem 1rem',
+                        fontSize: '0.9rem',
+                        color: 'white',
+                        opacity: isTranscribingContext ? 0.6 : 1,
+                      }}
+                    >
+                      {isTranscribingContext ? '⏳ Processing...' : '📁 Upload Context Audio'}
+                    </button>
+                    <input
+                      ref={contextFileInputRef}
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleContextFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={stopRecordingContext}
+                    style={{
+                      background: '#ef4444',
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.9rem',
+                      color: 'white',
+                    }}
+                  >
+                    ⏹️ Stop ({formatTime(contextRecordingTime)})
+                  </button>
+                )}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
+                {isRecordingContext 
+                  ? 'Recording context... Describe your audience, goal, duration, etc.' 
+                  : isTranscribingContext
+                  ? 'Processing context audio and extracting information...'
+                  : 'Record or upload audio describing your pitch context (audience, goal, duration, scenario, etc.)'}
+              </p>
+            </div>
             <div className="context-fields">
               <div>
                 <label htmlFor="audience" style={{ fontSize: '0.9rem', fontWeight: 400 }}>
