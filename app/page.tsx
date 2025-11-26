@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
   const [transcript, setTranscript] = useState('');
+  const [audioAnalysis, setAudioAnalysis] = useState<any>(null);
   const [audience, setAudience] = useState('');
   const [goal, setGoal] = useState('');
   const [duration, setDuration] = useState('');
@@ -103,6 +104,14 @@ export default function Home() {
           }
 
           setTranscript(data.transcription || '');
+      // Store audio analysis data including emotions
+      if (data.emotionalState || data.audioAnalysis) {
+        setAudioAnalysis({
+          emotionIndicators: data.emotionIndicators,
+          emotionalState: data.emotionalState,
+          audioAnalysis: data.audioAnalysis
+        });
+      }
         } catch (err: any) {
           setError(err.message || 'Failed to transcribe recording');
         } finally {
@@ -177,6 +186,14 @@ export default function Home() {
       }
 
       setTranscript(data.transcription || '');
+      // Store audio analysis data including emotions
+      if (data.emotionalState || data.audioAnalysis) {
+        setAudioAnalysis({
+          emotionIndicators: data.emotionIndicators,
+          emotionalState: data.emotionalState,
+          audioAnalysis: data.audioAnalysis
+        });
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to transcribe audio file');
     } finally {
@@ -393,6 +410,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           transcript,
+          audioAnalysis: audioAnalysis || undefined,
           context: Object.keys(context).length > 0 ? context : undefined,
           session_info: Object.keys(sessionInfo).length > 0 ? sessionInfo : undefined,
         }),

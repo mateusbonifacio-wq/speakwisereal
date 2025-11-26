@@ -3,6 +3,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface AnalyzeRequest {
   transcript: string;
+  audioAnalysis?: {
+    emotionIndicators?: any;
+    emotionalState?: any;
+    audioEvents?: any[];
+    speechPatterns?: any;
+  };
   context?: {
     audience?: string;
     goal?: string;
@@ -22,7 +28,7 @@ interface AnalyzeRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: AnalyzeRequest = await request.json();
-    const { transcript, context, session_info } = body;
+    const { transcript, audioAnalysis, context, session_info } = body;
 
     if (!transcript || transcript.trim().length === 0) {
       return NextResponse.json(
@@ -203,6 +209,23 @@ General rules and style guidelines:
 - Never apologize for giving critical feedback; frame it as helpful coaching for growth.`;
 
     let userPrompt = `Please analyze this pitch transcript:\n\n${transcript}`;
+    
+    // Add audio analysis information if available
+    if (audioAnalysis && audioAnalysis.emotionalState) {
+      userPrompt += `\n\nAudio & Emotional Analysis:\n`;
+      userPrompt += `- Filler words detected: ${audioAnalysis.emotionIndicators?.fillerWordCount || 0}\n`;
+      userPrompt += `- Repetitions detected: ${audioAnalysis.emotionIndicators?.repetitionCount || 0}\n`;
+      userPrompt += `- Emotional state indicators:\n`;
+      if (audioAnalysis.emotionalState.nervousness) userPrompt += `  * Nervousness detected (filler words: ${audioAnalysis.emotionIndicators?.fillerWords || 0}, repetitions: ${audioAnalysis.emotionIndicators?.repetitions || 0})\n`;
+      if (audioAnalysis.emotionalState.hesitation) userPrompt += `  * Hesitation detected (uncertainty markers, pauses)\n`;
+      if (audioAnalysis.emotionalState.enthusiasm) userPrompt += `  * Enthusiasm detected\n`;
+      if (audioAnalysis.emotionalState.rushed) userPrompt += `  * Rushed delivery detected (high words per sentence)\n`;
+      if (audioAnalysis.emotionalState.confidence) userPrompt += `  * Confident delivery (low filler words, clear speech)\n`;
+      if (audioAnalysis.speechPatterns?.pace) userPrompt += `- Speaking pace: ${audioAnalysis.speechPatterns.pace}\n`;
+      if (audioAnalysis.audioEvents && audioAnalysis.audioEvents.length > 0) {
+        userPrompt += `- Audio events detected: ${audioAnalysis.audioEvents.map((e: any) => e.type || e).join(', ')}\n`;
+      }
+    }
 
     if (context) {
       userPrompt += `\n\nContext:\n`;
