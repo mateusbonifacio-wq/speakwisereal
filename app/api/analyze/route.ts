@@ -217,8 +217,40 @@ General rules and style guidelines:
       }
     }
 
-    // Try different model names - gemini-1.5-pro is the most commonly available
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    // Try different model names in order of preference
+    const modelNames = [
+      'gemini-1.5-pro',
+      'gemini-1.5-flash', 
+      'gemini-pro',
+      'gemini-1.0-pro'
+    ];
+    
+    let model;
+    let modelError: any = null;
+    
+    for (const modelName of modelNames) {
+      try {
+        model = genAI.getGenerativeModel({ model: modelName });
+        // Test the model with a simple request
+        const testResult = await model.generateContent('test');
+        await testResult.response;
+        // If we get here without error, this model works
+        console.log(`Using model: ${modelName}`);
+        break;
+      } catch (err: any) {
+        modelError = err;
+        console.log(`Model ${modelName} failed: ${err.message}`);
+        continue;
+      }
+    }
+    
+    if (!model) {
+      throw new Error(
+        `No available Gemini models found. Tried: ${modelNames.join(', ')}. ` +
+        `Last error: ${modelError?.message || 'Unknown'}. ` +
+        `Please verify your API key has access to Gemini models at https://makersuite.google.com/app/apikey`
+      );
+    }
 
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
