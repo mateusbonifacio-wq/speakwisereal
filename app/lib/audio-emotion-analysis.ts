@@ -1,7 +1,14 @@
 /**
  * Audio Emotion Analysis Library
  * Analyzes audio file to extract emotional features like pitch, energy, tempo, etc.
- * This can be enhanced with OpenSMILE or other advanced audio analysis tools
+ * 
+ * This library can be enhanced with:
+ * - OpenSMILE: Open-source audio feature extraction toolkit
+ * - AssemblyAI: Cloud API with emotion detection
+ * - Deepgram: Speech API with sentiment analysis
+ * - Custom audio analysis using Web Audio API or Node.js audio libraries
+ * 
+ * See EMOTION_ANALYSIS.md for integration guide
  */
 
 interface AudioEmotionFeatures {
