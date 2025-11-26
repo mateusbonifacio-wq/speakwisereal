@@ -92,23 +92,23 @@ export async function POST(request: NextRequest) {
     
     // Extract transcription text from response
     // The API response structure may vary, so we handle different formats
-    let transcription = '';
+    let rawTranscription = '';
     if (result.text) {
-      transcription = result.text;
+      rawTranscription = result.text;
     } else if (result.transcription) {
-      transcription = result.transcription;
+      rawTranscription = result.transcription;
     } else if (typeof result === 'string') {
-      transcription = result;
+      rawTranscription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
       // If response has segments with timing and text
-      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+      rawTranscription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
     } else {
-      transcription = JSON.stringify(result);
+      rawTranscription = JSON.stringify(result);
     }
 
     // Only clean obvious environmental noise, keep speech events like "(chuckles)" and "(laughter)"
     // These are part of the delivery and should be analyzed
-    transcription = transcription
+    let transcription = rawTranscription
       // Remove only clear environmental sounds, keep speech-related events
       .replace(/\s*\(thunder\s+rumbling\)\s*/gi, ' ')
       .replace(/\s*\(wind\s+blowing\)\s*/gi, ' ')
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
       .replace(/\s+/g, ' ')
       .trim();
     
-    // Extract audio events for metadata
-    const audioEventsInText = extractAudioEvents(transcription);
+    // Extract audio events for metadata (from original before cleaning)
+    const audioEventsInText = extractAudioEvents(rawTranscription);
 
     // Analyze audio features for emotion detection from the actual audio signal
     // This extracts acoustic features like pitch, energy, tempo, etc.
