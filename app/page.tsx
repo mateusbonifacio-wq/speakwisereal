@@ -18,7 +18,6 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -29,9 +28,6 @@ export default function Home() {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
-      }
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
@@ -44,67 +40,60 @@ export default function Home() {
       setError('');
       setTranscript('');
 
-      // Check browser support
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      if (!SpeechRecognition) {
-        setError('Your browser does not support speech recognition. Please use Chrome, Edge, or Safari.');
-        return;
-      }
-
-      // Initialize if not already done
-      if (!recognitionRef.current) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US';
-
-        recognitionRef.current.onresult = (event: any) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript + ' ';
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-
-          setTranscript((prev) => {
-            const base = prev.replace(interimTranscript, '');
-            return base + finalTranscript + interimTranscript;
-          });
-        };
-
-        recognitionRef.current.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
-          if (event.error === 'no-speech') {
-            setError('No speech detected. Please try again.');
-          } else if (event.error === 'audio-capture') {
-            setError('Microphone not found. Please check your microphone settings.');
-          } else {
-            setError('Speech recognition error. Please try again.');
-          }
-          setIsRecording(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          // Check if we should still be recording
-          if (isRecordingRef.current) {
-            // Restart if still recording
-            try {
-              recognitionRef.current?.start();
-            } catch (e) {
-              // Already started or error
-            }
-          }
-        };
-      }
-
-      // Request microphone permission
+      // Request microphone permission and start recording
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Stop immediately, we just needed permission
+      
+      // Initialize MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Combine all chunks into a single blob
+        const audioBlob = new Blob(chunksRef.current, { 
+          type: mediaRecorder.mimeType || 'audio/webm' 
+        });
+        
+        // Transcribe using ElevenLabs
+        setIsTranscribing(true);
+        try {
+          const formData = new FormData();
+          const audioFile = new File([audioBlob], 'recording.webm', { 
+            type: audioBlob.type 
+          });
+          formData.append('audio', audioFile);
+
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to transcribe audio');
+          }
+
+          setTranscript(data.transcription || '');
+        } catch (err: any) {
+          setError(err.message || 'Failed to transcribe recording');
+        } finally {
+          setIsTranscribing(false);
+          chunksRef.current = [];
+        }
+      };
 
       setIsRecording(true);
       isRecordingRef.current = true;
@@ -115,10 +104,8 @@ export default function Home() {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
-      // Start speech recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.start();
-      }
+      // Start recording
+      mediaRecorder.start(1000); // Collect data every second
     } catch (err: any) {
       setError('Could not access microphone. Please check permissions.');
       setIsRecording(false);
@@ -132,8 +119,8 @@ export default function Home() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
     }
     setRecordingTime(0);
   };
@@ -322,7 +309,27 @@ export default function Home() {
                   background: '#ef4444',
                   animation: 'pulse 1.5s ease-in-out infinite'
                 }}></span>
-                Listening... Speak clearly into your microphone
+                Recording... Speak clearly into your microphone (using ElevenLabs)
+              </div>
+            )}
+            {isTranscribing && (
+              <div style={{ 
+                marginTop: '0.5rem', 
+                color: '#3b82f6', 
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <span style={{
+                  display: 'inline-block',
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  background: '#3b82f6',
+                  animation: 'pulse 1.5s ease-in-out infinite'
+                }}></span>
+                Transcribing with ElevenLabs...
               </div>
             )}
           </div>
