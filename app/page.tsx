@@ -17,6 +17,7 @@ export default function Home() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isRecordingRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -83,10 +84,8 @@ export default function Home() {
         };
 
         recognitionRef.current.onend = () => {
-          // Check if we should still be recording by checking the state
-          // We'll use a ref to track this
-          const shouldContinue = recognitionRef.current?.isRecording;
-          if (shouldContinue) {
+          // Check if we should still be recording
+          if (isRecordingRef.current) {
             // Restart if still recording
             try {
               recognitionRef.current?.start();
@@ -102,6 +101,7 @@ export default function Home() {
       stream.getTracks().forEach(track => track.stop()); // Stop immediately, we just needed permission
 
       setIsRecording(true);
+      isRecordingRef.current = true;
       setRecordingTime(0);
 
       // Start timer
@@ -111,7 +111,6 @@ export default function Home() {
 
       // Start speech recognition
       if (recognitionRef.current) {
-        recognitionRef.current.isRecording = true;
         recognitionRef.current.start();
       }
     } catch (err: any) {
@@ -121,13 +120,13 @@ export default function Home() {
   };
 
   const stopRecording = () => {
+    isRecordingRef.current = false;
     setIsRecording(false);
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
     if (recognitionRef.current) {
-      recognitionRef.current.isRecording = false;
       recognitionRef.current.stop();
     }
     setRecordingTime(0);
