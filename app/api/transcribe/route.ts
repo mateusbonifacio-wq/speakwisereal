@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { analyzeAudioEmotions } from '../../lib/audio-emotion-analysis';
 
 export async function POST(request: NextRequest) {
   try {
@@ -76,6 +77,15 @@ export async function POST(request: NextRequest) {
       transcription = JSON.stringify(result);
     }
 
+    // Analyze audio features for emotion detection from the actual audio signal
+    // This extracts acoustic features like pitch, energy, tempo, etc.
+    let audioEmotionFeatures: any = {};
+    try {
+      audioEmotionFeatures = await analyzeAudioEmotions(buffer, audioFile.type);
+    } catch (err) {
+      console.log('Audio emotion analysis not available:', err);
+    }
+
     // Extract emotional and audio metadata
     const audioAnalysis = {
       // Audio events (laughter, applause, etc.)
@@ -93,6 +103,9 @@ export async function POST(request: NextRequest) {
       
       // Segments with timing (to analyze pace and pauses)
       segments: result.segments || [],
+      
+      // Acoustic emotion features from audio signal (OpenSMILE-style analysis)
+      acousticFeatures: audioEmotionFeatures,
       
       // Original metadata
       metadata: result.metadata || {}
