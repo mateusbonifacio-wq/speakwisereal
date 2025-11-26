@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface AnalyzeRequest {
   transcript: string;
@@ -25,6 +21,16 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'API key not configured. Please set GOOGLE_AI_API_KEY or ELEVENLABS_API_KEY environment variable.' },
+        { status: 500 }
+      );
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     // Build the prompt for the AI coach
     let systemPrompt = `You are an expert pitch and communication coach. Your job is to analyze pitches and give clear, concise, and practical feedback that helps users improve quickly. Assume the user is practicing and wants honest but encouraging coaching.
@@ -82,16 +88,13 @@ Guidelines:
       }
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-    const feedback = completion.choices[0]?.message?.content || 'No feedback generated';
+    const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const feedback = response.text() || 'No feedback generated';
 
     return NextResponse.json({ feedback });
   } catch (error: any) {

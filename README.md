@@ -15,7 +15,7 @@ An AI-powered pitch and communication coaching application that analyzes your pi
 ### Prerequisites
 
 - Node.js 18+ and npm/yarn
-- OpenAI API key
+- Google AI API key (free) - Get it at [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 ### Installation
 
@@ -30,10 +30,21 @@ cd speakwisereal
 npm install
 ```
 
-3. Create a `.env.local` file in the root directory and add your OpenAI API key:
+3. Create a `.env.local` file in the root directory and add your Google AI API key:
 ```
-OPENAI_API_KEY=your_openai_api_key_here
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here
 ```
+
+**Or if you prefer to use ElevenLabs API key:**
+```
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+```
+
+**To get a free Google AI API key:**
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click "Create API Key"
+4. Copy the key and add it to your `.env.local` file
 
 4. Run the development server:
 ```bash
@@ -57,8 +68,9 @@ git push -u origin main
 
 4. **Add Environment Variable**:
    - In the Vercel project settings, go to "Environment Variables"
-   - Add `OPENAI_API_KEY` with your OpenAI API key value
+   - Add `GOOGLE_AI_API_KEY` with your Google AI API key value (or `ELEVENLABS_API_KEY` if using ElevenLabs)
    - Make sure to add it for all environments (Production, Preview, Development)
+   - **Get a free Google AI API key**: [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 5. **Deploy**: Click "Deploy" and Vercel will automatically build and deploy your application
 
@@ -111,7 +123,7 @@ speakwisereal/
 
 - **Next.js 14**: React framework with App Router
 - **TypeScript**: Type-safe development
-- **OpenAI API**: GPT-4 for pitch analysis
+- **Google Gemini API**: Free AI model for pitch analysis (or ElevenLabs API key)
 - **CSS**: Custom styling with modern design
 
 ## Contributing
