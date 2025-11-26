@@ -42,6 +42,28 @@ npm run dev
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Deploy on Vercel
+
+1. **Push your code to GitHub** (if you haven't already):
+```bash
+git add .
+git commit -m "Initial commit"
+git push -u origin main
+```
+
+2. **Go to [Vercel](https://vercel.com)** and sign in with your GitHub account
+
+3. **Click "New Project"** and import your `speakwisereal` repository
+
+4. **Add Environment Variable**:
+   - In the Vercel project settings, go to "Environment Variables"
+   - Add `OPENAI_API_KEY` with your OpenAI API key value
+   - Make sure to add it for all environments (Production, Preview, Development)
+
+5. **Deploy**: Click "Deploy" and Vercel will automatically build and deploy your application
+
+6. **Your app will be live** at a URL like `https://speakwisereal.vercel.app`
+
 ## Usage
 
 1. **Enter your pitch transcript**: Paste or type your pitch transcript in the text area
