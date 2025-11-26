@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    elevenLabsFormData.append('language_code', 'eng');
+    // Don't specify language_code to allow automatic detection for multiple languages
 
     // Call ElevenLabs Speech-to-Text API
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
@@ -51,55 +51,32 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text - focus on getting actual speech text
+    // Extract transcription text - simple extraction, no filtering
     let transcription = '';
     
-    // Try common response formats from ElevenLabs - prioritize actual speech
-    if (result.text && typeof result.text === 'string' && result.text.length > 10) {
-      transcription = result.text;
-    } else if (result.transcription && typeof result.transcription === 'string') {
-      transcription = result.transcription;
-    } else if (typeof result === 'string' && result.length > 10) {
+    // Try all possible formats from ElevenLabs - don't filter anything
+    if (typeof result === 'string') {
       transcription = result;
+    } else if (result.text) {
+      transcription = result.text;
+    } else if (result.transcription) {
+      transcription = result.transcription;
+    } else if (result.transcript) {
+      transcription = result.transcript;
     } else if (result.segments && Array.isArray(result.segments)) {
-      // Extract from segments - filter out audio-only segments
-      const speechSegments = result.segments
-        .map((seg: any) => {
-          const text = seg.text || seg.transcript || '';
-          // Skip segments that are only audio events (no actual speech)
-          const audioEventPatterns = /^\(?(thunder|wind|birds?|static|background|noise|music)[^)]*\)?$/i;
-          if (text.match(audioEventPatterns) && text.length < 20) {
-            return null; // Skip this segment
-          }
-          return text.trim();
-        })
-        .filter((text: string | null) => text && text.length > 0);
-      
-      transcription = speechSegments.join(' ').trim();
-    }
-    
-    // If we still don't have good transcription, try words array
-    if (!transcription || transcription.length < 5) {
-      if (result.words && Array.isArray(result.words)) {
-        transcription = result.words
-          .map((w: any) => w.word || w.text || '')
-          .filter((w: string) => w && !w.match(/^\(.*\)$/))
-          .join(' ')
-          .trim();
-      }
-    }
-    
-    // Final cleanup - remove obvious audio-only content but keep speech markers like (laughs)
-    if (transcription) {
-      // Remove environmental sounds, keep speech
-      transcription = transcription
-        .replace(/\s*\(thunder[^)]*\)\s*/gi, ' ')
-        .replace(/\s*\(wind[^)]*\)\s*/gi, ' ')
-        .replace(/\s*\(birds?[^)]*\)\s*/gi, ' ')
-        .replace(/\s*\(background\s+noise\)\s*/gi, ' ')
-        .replace(/\s*\(static\)\s*/gi, ' ')
-        .replace(/\s+/g, ' ')
+      // Get all text from segments - don't filter anything
+      transcription = result.segments
+        .map((seg: any) => seg.text || seg.transcript || '')
+        .filter((text: string) => text && text.trim())
+        .join(' ')
         .trim();
+    } else if (result.words && Array.isArray(result.words)) {
+      transcription = result.words.map((w: any) => w.word || w.text || '').join(' ').trim();
+    }
+    
+    // Just clean up extra spaces, don't remove any content
+    if (transcription) {
+      transcription = transcription.replace(/\s+/g, ' ').trim();
     }
 
     // Simple emotion analysis from text only
