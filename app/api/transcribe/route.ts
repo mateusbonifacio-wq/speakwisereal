@@ -49,7 +49,22 @@ function cleanTranscription(text: string): string {
   });
   
   // Remove any remaining isolated parentheses with common audio-related words
-  cleaned = cleaned.replace(/\s*\([^)]*(?:sound|noise|audio|event|environment)[^)]*\)\s*/gi, '');
+  cleaned = cleaned.replace(/\s*\([^)]*(?:sound|noise|audio|event|environment|rumbling|blowing|chirping)[^)]*\)\s*/gi, '');
+  
+  // More aggressive: Remove any parentheses that contain only lowercase words (likely audio events)
+  // But keep parentheses with capital letters (likely proper nouns or speech)
+  cleaned = cleaned.replace(/\s*\(([a-z\s]+)\)\s*/g, (match, content) => {
+    // Check if it's likely an audio event (contains common audio keywords)
+    const audioKeywords = ['thunder', 'wind', 'bird', 'sound', 'noise', 'music', 'background'];
+    if (audioKeywords.some(keyword => content.toLowerCase().includes(keyword))) {
+      return ' '; // Replace with space
+    }
+    // If it's all lowercase and short, probably an audio event
+    if (content.length < 30 && /^[a-z\s]+$/.test(content)) {
+      return ' ';
+    }
+    return match; // Keep it if it might be speech
+  });
   
   // Clean up multiple spaces and trim
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
