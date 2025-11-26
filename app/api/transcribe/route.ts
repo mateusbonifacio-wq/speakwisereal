@@ -1,34 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeAudioEmotions } from '../../lib/audio-emotion-analysis';
-
-/**
- * Extract audio events from transcription text
- * Returns array of detected audio events (for metadata analysis)
- */
-function extractAudioEvents(text: string): string[] {
-  if (!text) return [];
-  
-  const events: string[] = [];
-  const matches = text.match(/\([^)]+\)/g);
-  
-  if (matches) {
-    matches.forEach(match => {
-      const content = match.replace(/[()]/g, '').toLowerCase();
-      // Check if it looks like an audio event (not speech)
-      const audioKeywords = [
-        'thunder', 'wind', 'bird', 'laughter', 'applause', 'music', 
-        'noise', 'static', 'phone', 'door', 'car', 'dog', 'siren',
-        'airplane', 'footstep', 'breathing', 'sigh', 'cough'
-      ];
-      
-      if (audioKeywords.some(keyword => content.includes(keyword))) {
-        events.push(content);
-      }
-    });
-  }
-  
-  return events;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,14 +30,9 @@ export async function POST(request: NextRequest) {
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
 
-    // Add optional parameters based on the Python example
-    // These parameters enable emotion detection and audio analysis
+    // Add optional parameters for ElevenLabs
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    elevenLabsFormData.append('tag_audio_events', 'true'); // Tags laughter, applause, etc.
     elevenLabsFormData.append('language_code', 'eng');
-    elevenLabsFormData.append('diarize', 'true'); // Speaker diarization
-    // Add parameter to get more detailed audio analysis
-    elevenLabsFormData.append('include_audio_features', 'true');
 
     // Call ElevenLabs Speech-to-Text API
     // Note: The endpoint might be different, check ElevenLabs docs
@@ -92,65 +57,37 @@ export async function POST(request: NextRequest) {
     
     // Extract transcription text from response
     // The API response structure may vary, so we handle different formats
-    let rawTranscription = '';
+    let transcription = '';
     if (result.text) {
-      rawTranscription = result.text;
+      transcription = result.text;
     } else if (result.transcription) {
-      rawTranscription = result.transcription;
+      transcription = result.transcription;
     } else if (typeof result === 'string') {
-      rawTranscription = result;
+      transcription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
       // If response has segments with timing and text
-      rawTranscription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
     } else {
-      rawTranscription = JSON.stringify(result);
+      transcription = JSON.stringify(result);
     }
 
-    // Only clean obvious environmental noise, keep speech events like "(chuckles)" and "(laughter)"
-    // These are part of the delivery and should be analyzed
-    let transcription = rawTranscription
-      // Remove only clear environmental sounds, keep speech-related events
-      .replace(/\s*\(thunder\s+rumbling\)\s*/gi, ' ')
-      .replace(/\s*\(wind\s+blowing\)\s*/gi, ' ')
-      .replace(/\s*\(birds?\s+chirping\)\s*/gi, ' ')
-      .replace(/\s*\(background\s+noise\)\s*/gi, ' ')
-      .replace(/\s*\(static\)\s*/gi, ' ')
-      // Keep (chuckles), (laughter), (applause) as they're part of delivery
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // Extract audio events for metadata (from original before cleaning)
-    const audioEventsInText = extractAudioEvents(rawTranscription);
-
-    // Analyze audio features for emotion detection from the actual audio signal
-    // This extracts acoustic features like pitch, energy, tempo, etc.
-    let audioEmotionFeatures: any = {};
-    try {
-      audioEmotionFeatures = await analyzeAudioEmotions(buffer, audioFile.type);
-    } catch (err) {
-      console.log('Audio emotion analysis not available:', err);
-    }
-
-    // Extract emotional and audio metadata
+    // Simple audio metadata (without complex analysis)
     const audioAnalysis = {
-      // Audio events (laughter, applause, environmental sounds, etc.)
-      audioEvents: result.audio_events || result.events || audioEventsInText || [],
+      // Audio events (if provided by ElevenLabs)
+      audioEvents: result.audio_events || result.events || [],
       
       // Speaker diarization (if multiple speakers)
       speakers: result.speakers || result.diarization || [],
       
-      // Speech patterns (pauses, pace indicators)
+      // Speech patterns (if available)
       speechPatterns: {
         pauses: result.pauses || [],
         pace: result.pace || result.speaking_rate || null,
         volume: result.volume || result.energy || null,
       },
       
-      // Segments with timing (to analyze pace and pauses)
+      // Segments with timing
       segments: result.segments || [],
-      
-      // Acoustic emotion features from audio signal (OpenSMILE-style analysis)
-      acousticFeatures: audioEmotionFeatures,
       
       // Original metadata
       metadata: result.metadata || {}
