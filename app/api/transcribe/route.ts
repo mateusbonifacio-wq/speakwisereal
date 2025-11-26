@@ -51,39 +51,55 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text - simple extraction from ElevenLabs response
+    // Extract transcription text - focus on getting actual speech text
     let transcription = '';
     
-    // Try common response formats from ElevenLabs
-    if (result.text) {
+    // Try common response formats from ElevenLabs - prioritize actual speech
+    if (result.text && typeof result.text === 'string' && result.text.length > 10) {
       transcription = result.text;
-    } else if (result.transcription) {
+    } else if (result.transcription && typeof result.transcription === 'string') {
       transcription = result.transcription;
-    } else if (typeof result === 'string') {
+    } else if (typeof result === 'string' && result.length > 10) {
       transcription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
-      // Extract from segments array - this is likely the format ElevenLabs uses
-      transcription = result.segments
-        .filter((seg: any) => seg.text || seg.transcript)
+      // Extract from segments - filter out audio-only segments
+      const speechSegments = result.segments
         .map((seg: any) => {
           const text = seg.text || seg.transcript || '';
-          // Skip audio event segments - only get actual speech
-          if (text.match(/^\([a-z\s]+\)$/i) && !text.match(/^(laughs?|chuckles?|sighs?|applause)$/i)) {
-            return '';
+          // Skip segments that are only audio events (no actual speech)
+          const audioEventPatterns = /^\(?(thunder|wind|birds?|static|background|noise|music)[^)]*\)?$/i;
+          if (text.match(audioEventPatterns) && text.length < 20) {
+            return null; // Skip this segment
           }
-          return text;
+          return text.trim();
         })
-        .filter((text: string) => text.trim())
-        .join(' ');
+        .filter((text: string | null) => text && text.length > 0);
+      
+      transcription = speechSegments.join(' ').trim();
     }
     
-    // Clean up transcription - remove audio event markers but keep speech
+    // If we still don't have good transcription, try words array
+    if (!transcription || transcription.length < 5) {
+      if (result.words && Array.isArray(result.words)) {
+        transcription = result.words
+          .map((w: any) => w.word || w.text || '')
+          .filter((w: string) => w && !w.match(/^\(.*\)$/))
+          .join(' ')
+          .trim();
+      }
+    }
+    
+    // Final cleanup - remove obvious audio-only content but keep speech markers like (laughs)
     if (transcription) {
-      // Remove standalone audio events like "(thunder rumbling)" but keep speech
-      transcription = transcription.replace(/\s*\(thunder\s+rumbling\)\s*/gi, ' ');
-      transcription = transcription.replace(/\s*\(wind\s+blowing\)\s*/gi, ' ');
-      transcription = transcription.replace(/\s*\(birds?\s+chirping\)\s*/gi, ' ');
-      transcription = transcription.replace(/\s+/g, ' ').trim();
+      // Remove environmental sounds, keep speech
+      transcription = transcription
+        .replace(/\s*\(thunder[^)]*\)\s*/gi, ' ')
+        .replace(/\s*\(wind[^)]*\)\s*/gi, ' ')
+        .replace(/\s*\(birds?[^)]*\)\s*/gi, ' ')
+        .replace(/\s*\(background\s+noise\)\s*/gi, ' ')
+        .replace(/\s*\(static\)\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
     }
 
     // Simple emotion analysis from text only
