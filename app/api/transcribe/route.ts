@@ -51,18 +51,38 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text - simple and direct
+    // Debug: log the result structure
+    console.log('ElevenLabs response:', JSON.stringify(result).substring(0, 500));
+    
+    // Extract transcription text - handle all possible formats
     let transcription = '';
-    if (result.text) {
+    if (typeof result === 'string') {
+      transcription = result;
+    } else if (result.text) {
       transcription = result.text;
     } else if (result.transcription) {
       transcription = result.transcription;
-    } else if (typeof result === 'string') {
-      transcription = result;
+    } else if (result.transcript) {
+      transcription = result.transcript;
     } else if (result.segments && Array.isArray(result.segments)) {
-      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+      transcription = result.segments
+        .map((seg: any) => seg.text || seg.transcript || seg.word || '')
+        .filter((text: string) => text.trim())
+        .join(' ');
+    } else if (result.words && Array.isArray(result.words)) {
+      transcription = result.words.map((w: any) => w.word || w.text || '').join(' ');
     } else {
-      transcription = JSON.stringify(result);
+      // Last resort: try to find any text field
+      transcription = result.text || result.transcription || result.transcript || '';
+      if (!transcription && typeof result === 'object') {
+        console.warn('Unexpected ElevenLabs response format:', Object.keys(result));
+        transcription = '';
+      }
+    }
+    
+    // Ensure we have a string
+    if (typeof transcription !== 'string') {
+      transcription = String(transcription || '');
     }
 
     // Simple emotion analysis from text only
