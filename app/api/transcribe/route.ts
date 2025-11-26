@@ -106,11 +106,20 @@ export async function POST(request: NextRequest) {
       repetitionCount: repetitions
     };
 
-    return NextResponse.json({ 
-      transcription,
+    // Always return transcription, even if empty (so frontend knows request completed)
+    const responseData = { 
+      transcription: transcription || '',
       emotionIndicators,
       emotionalState
+    };
+    
+    console.log('Returning transcription response:', {
+      transcriptionLength: transcription.length,
+      hasTranscription: !!transcription,
+      emotionIndicators
     });
+    
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('Error transcribing audio:', error);
     return NextResponse.json(
