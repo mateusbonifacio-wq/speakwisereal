@@ -20,6 +20,14 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isRecordingContext, setIsRecordingContext] = useState(false);
+  const [contextRecordingTime, setContextRecordingTime] = useState(0);
+  const [isTranscribingContext, setIsTranscribingContext] = useState(false);
+  const contextMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const contextChunksRef = useRef<Blob[]>([]);
+  const contextTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isContextRecordingRef = useRef(false);
+  const contextFileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -170,6 +178,182 @@ export default function Home() {
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const startRecordingContext = async () => {
+    try {
+      setError('');
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      contextMediaRecorderRef.current = mediaRecorder;
+      contextChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          contextChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        
+        const audioBlob = new Blob(contextChunksRef.current, { 
+          type: mediaRecorder.mimeType || 'audio/webm' 
+        });
+        
+        setIsTranscribingContext(true);
+        try {
+          const formData = new FormData();
+          const audioFile = new File([audioBlob], 'context-recording.webm', { 
+            type: audioBlob.type 
+          });
+          formData.append('audio', audioFile);
+
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to transcribe context audio');
+          }
+
+          // Extract context from transcription
+          const extractResponse = await fetch('/api/extract-context', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contextTranscript: data.transcription,
+            }),
+          });
+
+          const extractData = await extractResponse.json();
+
+          if (!extractResponse.ok) {
+            throw new Error(extractData.error || 'Failed to extract context');
+          }
+
+          // Fill in the context fields
+          if (extractData.context) {
+            const ctx = extractData.context;
+            if (ctx.audience) setAudience(ctx.audience);
+            if (ctx.goal) setGoal(ctx.goal);
+            if (ctx.duration) setDuration(ctx.duration);
+            if (ctx.scenario) setScenario(ctx.scenario);
+            if (ctx.english_level) setEnglishLevel(ctx.english_level);
+            if (ctx.tone_style) setToneStyle(ctx.tone_style);
+            if (ctx.constraints) setConstraints(ctx.constraints);
+            if (ctx.notes_from_user) setNotesFromUser(ctx.notes_from_user);
+          }
+        } catch (err: any) {
+          setError(err.message || 'Failed to process context recording');
+        } finally {
+          setIsTranscribingContext(false);
+          contextChunksRef.current = [];
+        }
+      };
+
+      setIsRecordingContext(true);
+      isContextRecordingRef.current = true;
+      setContextRecordingTime(0);
+
+      contextTimerRef.current = setInterval(() => {
+        setContextRecordingTime((prev) => prev + 1);
+      }, 1000);
+
+      mediaRecorder.start(1000);
+    } catch (err: any) {
+      setError('Could not access microphone. Please check permissions.');
+      setIsRecordingContext(false);
+    }
+  };
+
+  const stopRecordingContext = () => {
+    isContextRecordingRef.current = false;
+    setIsRecordingContext(false);
+    if (contextTimerRef.current) {
+      clearInterval(contextTimerRef.current);
+      contextTimerRef.current = null;
+    }
+    if (contextMediaRecorderRef.current && contextMediaRecorderRef.current.state !== 'inactive') {
+      contextMediaRecorderRef.current.stop();
+    }
+    setContextRecordingTime(0);
+  };
+
+  const handleContextFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      setError('Please upload an audio file (mp3, wav, m4a, etc.)');
+      return;
+    }
+
+    setIsTranscribingContext(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to transcribe audio');
+      }
+
+      // Extract context from transcription
+      const extractResponse = await fetch('/api/extract-context', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contextTranscript: data.transcription,
+        }),
+      });
+
+      const extractData = await extractResponse.json();
+
+      if (!extractResponse.ok) {
+        throw new Error(extractData.error || 'Failed to extract context');
+      }
+
+      // Fill in the context fields
+      if (extractData.context) {
+        const ctx = extractData.context;
+        if (ctx.audience) setAudience(ctx.audience);
+        if (ctx.goal) setGoal(ctx.goal);
+        if (ctx.duration) setDuration(ctx.duration);
+        if (ctx.scenario) setScenario(ctx.scenario);
+        if (ctx.english_level) setEnglishLevel(ctx.english_level);
+        if (ctx.tone_style) setToneStyle(ctx.tone_style);
+        if (ctx.constraints) setConstraints(ctx.constraints);
+        if (ctx.notes_from_user) setNotesFromUser(ctx.notes_from_user);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to process context audio');
+    } finally {
+      setIsTranscribingContext(false);
+      if (contextFileInputRef.current) {
+        contextFileInputRef.current.value = '';
       }
     }
   };
