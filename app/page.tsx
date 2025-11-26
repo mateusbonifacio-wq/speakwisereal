@@ -8,6 +8,10 @@ export default function Home() {
   const [audience, setAudience] = useState('');
   const [goal, setGoal] = useState('');
   const [duration, setDuration] = useState('');
+  const [scenario, setScenario] = useState('');
+  const [englishLevel, setEnglishLevel] = useState('');
+  const [toneStyle, setToneStyle] = useState('');
+  const [constraints, setConstraints] = useState('');
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -149,6 +153,10 @@ export default function Home() {
       if (audience) context.audience = audience;
       if (goal) context.goal = goal;
       if (duration) context.duration = duration;
+      if (scenario) context.scenario = scenario;
+      if (englishLevel) context.english_level = englishLevel;
+      if (toneStyle) context.tone_style = toneStyle;
+      if (constraints) context.constraints = constraints;
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -284,6 +292,65 @@ export default function Home() {
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="e.g., 3 minutes, 30 seconds, 5 minutes"
+                />
+              </div>
+              <div>
+                <label htmlFor="scenario" style={{ fontSize: '0.9rem', fontWeight: 400 }}>
+                  Scenario
+                </label>
+                <input
+                  type="text"
+                  id="scenario"
+                  value={scenario}
+                  onChange={(e) => setScenario(e.target.value)}
+                  placeholder="e.g., Investor pitch, Job interview, Sales call"
+                />
+              </div>
+              <div>
+                <label htmlFor="englishLevel" style={{ fontSize: '0.9rem', fontWeight: 400 }}>
+                  English Level
+                </label>
+                <select
+                  id="englishLevel"
+                  value={englishLevel}
+                  onChange={(e) => setEnglishLevel(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                >
+                  <option value="">Select level...</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="fluent">Fluent</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="toneStyle" style={{ fontSize: '0.9rem', fontWeight: 400 }}>
+                  Tone/Style
+                </label>
+                <select
+                  id="toneStyle"
+                  value={toneStyle}
+                  onChange={(e) => setToneStyle(e.target.value)}
+                  style={{ width: '100%', padding: '0.75rem', border: '2px solid #e0e0e0', borderRadius: '8px', fontSize: '1rem' }}
+                >
+                  <option value="">Select tone...</option>
+                  <option value="confident">Confident</option>
+                  <option value="friendly">Friendly</option>
+                  <option value="inspiring">Inspiring</option>
+                  <option value="professional">Professional</option>
+                  <option value="casual">Casual</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label htmlFor="constraints" style={{ fontSize: '0.9rem', fontWeight: 400 }}>
+                  Constraints
+                </label>
+                <input
+                  type="text"
+                  id="constraints"
+                  value={constraints}
+                  onChange={(e) => setConstraints(e.target.value)}
+                  placeholder="e.g., No jargon, Non-native audience, Max 1 minute"
                 />
               </div>
             </div>
