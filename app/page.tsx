@@ -12,6 +12,8 @@ export default function Home() {
   const [englishLevel, setEnglishLevel] = useState('');
   const [toneStyle, setToneStyle] = useState('');
   const [constraints, setConstraints] = useState('');
+  const [notesFromUser, setNotesFromUser] = useState('');
+  const [wantsDeploySuggestions, setWantsDeploySuggestions] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
