@@ -208,24 +208,91 @@ General rules and style guidelines:
 - Use Markdown headings and bullet points exactly as requested for readability.
 - Never apologize for giving critical feedback; frame it as helpful coaching for growth.`;
 
+    // Always analyze emotions from transcript, even if no audio data
+    const analyzeEmotionsFromText = (text: string) => {
+      const fillerWords = (text.match(/\b(uh|um|er|ah|like|you know|so|well)\b/gi) || []).length;
+      const repetitions = (text.match(/\b(\w+)(?:\s+\1\b)+/gi) || []).length;
+      const questionMarks = (text.match(/\?/g) || []).length;
+      const exclamationMarks = (text.match(/!/g) || []).length;
+      const ellipsis = (text.match(/\.{2,}/g) || []).length;
+      const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      const avgWordsPerSentence = sentences.length > 0 ? wordCount / sentences.length : 0;
+      
+      return {
+        fillerWords,
+        repetitions,
+        questionMarks,
+        exclamationMarks,
+        ellipsis,
+        wordCount,
+        avgWordsPerSentence,
+        nervousness: fillerWords > 5 || repetitions > 2,
+        hesitation: ellipsis > 2 || questionMarks > exclamationMarks,
+        enthusiasm: exclamationMarks > 2,
+        rushed: avgWordsPerSentence > 25,
+        confidence: fillerWords < 2 && repetitions === 0 && questionMarks === 0
+      };
+    };
+
+    const textEmotions = analyzeEmotionsFromText(transcript);
+
     let userPrompt = `Please analyze this pitch transcript:\n\n${transcript}`;
     
-    // Add audio analysis information if available
+    // Add audio analysis information if available, otherwise use text-based analysis
+    userPrompt += `\n\nEmotional & Delivery Analysis (from transcript):\n`;
     if (audioAnalysis && audioAnalysis.emotionalState) {
-      userPrompt += `\n\nAudio & Emotional Analysis:\n`;
-      userPrompt += `- Filler words detected: ${audioAnalysis.emotionIndicators?.fillerWordCount || 0}\n`;
-      userPrompt += `- Repetitions detected: ${audioAnalysis.emotionIndicators?.repetitionCount || 0}\n`;
+      // Use audio analysis if available
+      userPrompt += `- Filler words detected: ${audioAnalysis.emotionIndicators?.fillerWordCount || textEmotions.fillerWords}\n`;
+      userPrompt += `- Repetitions detected: ${audioAnalysis.emotionIndicators?.repetitionCount || textEmotions.repetitions}\n`;
       userPrompt += `- Emotional state indicators:\n`;
-      if (audioAnalysis.emotionalState.nervousness) userPrompt += `  * Nervousness detected (filler words: ${audioAnalysis.emotionIndicators?.fillerWords || 0}, repetitions: ${audioAnalysis.emotionIndicators?.repetitions || 0})\n`;
-      if (audioAnalysis.emotionalState.hesitation) userPrompt += `  * Hesitation detected (uncertainty markers, pauses)\n`;
-      if (audioAnalysis.emotionalState.enthusiasm) userPrompt += `  * Enthusiasm detected\n`;
-      if (audioAnalysis.emotionalState.rushed) userPrompt += `  * Rushed delivery detected (high words per sentence)\n`;
-      if (audioAnalysis.emotionalState.confidence) userPrompt += `  * Confident delivery (low filler words, clear speech)\n`;
-      if (audioAnalysis.speechPatterns?.pace) userPrompt += `- Speaking pace: ${audioAnalysis.speechPatterns.pace}\n`;
+      if (audioAnalysis.emotionalState.nervousness || textEmotions.nervousness) {
+        userPrompt += `  * Nervousness detected (filler words: ${audioAnalysis.emotionIndicators?.fillerWords || textEmotions.fillerWords}, repetitions: ${audioAnalysis.emotionIndicators?.repetitions || textEmotions.repetitions})\n`;
+      }
+      if (audioAnalysis.emotionalState.hesitation || textEmotions.hesitation) {
+        userPrompt += `  * Hesitation detected (uncertainty markers, pauses, ellipsis)\n`;
+      }
+      if (audioAnalysis.emotionalState.enthusiasm || textEmotions.enthusiasm) {
+        userPrompt += `  * Enthusiasm detected\n`;
+      }
+      if (audioAnalysis.emotionalState.rushed || textEmotions.rushed) {
+        userPrompt += `  * Rushed delivery detected (high words per sentence: ${textEmotions.avgWordsPerSentence.toFixed(1)})\n`;
+      }
+      if (audioAnalysis.emotionalState.confidence || textEmotions.confidence) {
+        userPrompt += `  * Confident delivery (low filler words, clear speech)\n`;
+      }
+      if (audioAnalysis.speechPatterns?.pace) {
+        userPrompt += `- Speaking pace: ${audioAnalysis.speechPatterns.pace}\n`;
+      }
       if (audioAnalysis.audioEvents && audioAnalysis.audioEvents.length > 0) {
         userPrompt += `- Audio events detected: ${audioAnalysis.audioEvents.map((e: any) => e.type || e).join(', ')}\n`;
       }
+    } else {
+      // Use text-based emotion analysis
+      userPrompt += `- Filler words detected: ${textEmotions.fillerWords}\n`;
+      userPrompt += `- Repetitions detected: ${textEmotions.repetitions}\n`;
+      userPrompt += `- Question marks: ${textEmotions.questionMarks}\n`;
+      userPrompt += `- Exclamation marks: ${textEmotions.exclamationMarks}\n`;
+      userPrompt += `- Average words per sentence: ${textEmotions.avgWordsPerSentence.toFixed(1)}\n`;
+      userPrompt += `- Emotional state indicators:\n`;
+      if (textEmotions.nervousness) {
+        userPrompt += `  * Nervousness detected (filler words: ${textEmotions.fillerWords}, repetitions: ${textEmotions.repetitions})\n`;
+      }
+      if (textEmotions.hesitation) {
+        userPrompt += `  * Hesitation detected (uncertainty markers, ellipsis: ${textEmotions.ellipsis})\n`;
+      }
+      if (textEmotions.enthusiasm) {
+        userPrompt += `  * Enthusiasm detected (exclamation marks: ${textEmotions.exclamationMarks})\n`;
+      }
+      if (textEmotions.rushed) {
+        userPrompt += `  * Rushed delivery detected (high words per sentence: ${textEmotions.avgWordsPerSentence.toFixed(1)})\n`;
+      }
+      if (textEmotions.confidence) {
+        userPrompt += `  * Confident delivery (low filler words: ${textEmotions.fillerWords}, clear speech)\n`;
+      }
     }
+    
+    userPrompt += `\nIMPORTANT: Use this emotional analysis to provide specific, empathetic feedback about the speaker's emotional state and delivery. Help them understand their nervousness, hesitation, or confidence levels and provide actionable strategies to improve.`;
 
     if (context) {
       userPrompt += `\n\nContext:\n`;
