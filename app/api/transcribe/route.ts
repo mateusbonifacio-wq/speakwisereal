@@ -55,18 +55,57 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text from response
+    // Debug: log the full response to understand format
+    console.log('ElevenLabs response keys:', Object.keys(result));
+    console.log('ElevenLabs response sample:', JSON.stringify(result).substring(0, 500));
+    
+    // Extract transcription text from response - try all possible formats
     let transcription = '';
-    if (result.text) {
-      transcription = result.text;
-    } else if (result.transcription) {
-      transcription = result.transcription;
-    } else if (typeof result === 'string') {
+    
+    // First try direct text fields
+    if (typeof result === 'string') {
       transcription = result;
-    } else if (result.segments && Array.isArray(result.segments)) {
-      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
-    } else {
-      transcription = JSON.stringify(result);
+    } else if (result.text && typeof result.text === 'string') {
+      transcription = result.text;
+    } else if (result.transcription && typeof result.transcription === 'string') {
+      transcription = result.transcription;
+    } else if (result.transcript && typeof result.transcript === 'string') {
+      transcription = result.transcript;
+    } 
+    // Try segments array - most common format
+    else if (result.segments && Array.isArray(result.segments) && result.segments.length > 0) {
+      // Extract text from each segment
+      const texts = result.segments
+        .map((seg: any) => {
+          // Try all possible text fields in segment
+          return seg.text || seg.transcript || seg.word || seg.content || '';
+        })
+        .filter((t: string) => t && t.trim().length > 0);
+      
+      transcription = texts.join(' ').trim();
+    }
+    // Try words array
+    else if (result.words && Array.isArray(result.words)) {
+      transcription = result.words
+        .map((w: any) => w.word || w.text || w.content || '')
+        .filter((w: string) => w && w.trim())
+        .join(' ')
+        .trim();
+    }
+    // Try nested formats
+    else if (result.data && typeof result.data === 'string') {
+      transcription = result.data;
+    } else if (result.data && result.data.text) {
+      transcription = result.data.text;
+    } else if (result.result && typeof result.result === 'string') {
+      transcription = result.result;
+    } else if (result.result && result.result.text) {
+      transcription = result.result.text;
+    }
+    
+    // If still empty, log the full structure for debugging
+    if (!transcription || transcription.length === 0) {
+      console.warn('Could not extract transcription. Full response:', JSON.stringify(result));
     }
 
     // Extract emotional and audio metadata
