@@ -293,30 +293,23 @@ General rules and style guidelines:
       if (audioAnalysis.audioEvents && audioAnalysis.audioEvents.length > 0) {
         userPrompt += `- Audio events detected: ${audioAnalysis.audioEvents.map((e: any) => e.type || e).join(', ')}\n`;
       }
-    } else {
-      // Use text-based emotion analysis
-      userPrompt += `- Filler words detected: ${textEmotions.fillerWords}\n`;
-      userPrompt += `- Repetitions detected: ${textEmotions.repetitions}\n`;
-      userPrompt += `- Question marks: ${textEmotions.questionMarks}\n`;
-      userPrompt += `- Exclamation marks: ${textEmotions.exclamationMarks}\n`;
-      userPrompt += `- Average words per sentence: ${textEmotions.avgWordsPerSentence.toFixed(1)}\n`;
-      userPrompt += `- Emotional state indicators:\n`;
-      if (textEmotions.nervousness) {
-        userPrompt += `  * Nervousness detected (filler words: ${textEmotions.fillerWords}, repetitions: ${textEmotions.repetitions})\n`;
-      }
-      if (textEmotions.hesitation) {
-        userPrompt += `  * Hesitation detected (uncertainty markers, ellipsis: ${textEmotions.ellipsis})\n`;
-      }
-      if (textEmotions.enthusiasm) {
-        userPrompt += `  * Enthusiasm detected (exclamation marks: ${textEmotions.exclamationMarks})\n`;
-      }
-      if (textEmotions.rushed) {
-        userPrompt += `  * Rushed delivery detected (high words per sentence: ${textEmotions.avgWordsPerSentence.toFixed(1)})\n`;
-      }
-      if (textEmotions.confidence) {
-        userPrompt += `  * Confident delivery (low filler words: ${textEmotions.fillerWords}, clear speech)\n`;
-      }
     }
+    
+    // ALWAYS include text-based emotion analysis (even if audio analysis exists)
+    userPrompt += `\nText-Based Emotional Analysis (ALWAYS APPLY THIS):\n`;
+    userPrompt += `- Filler words detected in transcript: ${textEmotions.fillerWords}\n`;
+    userPrompt += `- Repetitions detected: ${textEmotions.repetitions}\n`;
+    userPrompt += `- Uncertainty markers found: ${textEmotions.uncertaintyMarkers}\n`;
+    userPrompt += `- Question marks: ${textEmotions.questionMarks}\n`;
+    userPrompt += `- Exclamation marks: ${textEmotions.exclamationMarks}\n`;
+    userPrompt += `- Average words per sentence: ${textEmotions.avgWordsPerSentence.toFixed(1)}\n`;
+    userPrompt += `- Total word count: ${textEmotions.wordCount}\n`;
+    userPrompt += `\nEmotional State Summary:\n`;
+    userPrompt += `- Nervousness: ${textEmotions.nervousness ? 'YES' : 'NO'} (indicators: ${textEmotions.fillerWords} filler words, ${textEmotions.repetitions} repetitions, ${textEmotions.uncertaintyMarkers} uncertainty markers)\n`;
+    userPrompt += `- Hesitation: ${textEmotions.hesitation ? 'YES' : 'NO'} (indicators: ${textEmotions.ellipsis} ellipsis, ${textEmotions.questionMarks} question marks)\n`;
+    userPrompt += `- Enthusiasm: ${textEmotions.enthusiasm ? 'YES' : 'NO'} (indicators: ${textEmotions.exclamationMarks} exclamation marks)\n`;
+    userPrompt += `- Rushed delivery: ${textEmotions.rushed ? 'YES' : 'NO'} (${textEmotions.avgWordsPerSentence.toFixed(1)} words per sentence)\n`;
+    userPrompt += `- Confident delivery: ${textEmotions.confidence ? 'YES' : 'NO'}\n`;
     
     userPrompt += `\n\nCRITICAL INSTRUCTION: The emotional analysis above shows the speaker's actual emotional state based on their speech patterns. You MUST use this information in your feedback. In the "Emotional & Delivery Analysis" section, reference these specific findings and provide empathetic, supportive coaching. Don't just mention emotions in passing—make it a central part of your feedback to help them improve their delivery and overcome nervousness or hesitation.`;
 
