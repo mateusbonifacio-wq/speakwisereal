@@ -17,11 +17,13 @@ export default function Home() {
   const [error, setError] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const isRecordingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
@@ -142,6 +144,47 @@ export default function Home() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if it's an audio file
+    if (!file.type.startsWith('audio/')) {
+      setError('Please upload an audio file (mp3, wav, m4a, etc.)');
+      return;
+    }
+
+    setIsTranscribing(true);
+    setError('');
+    setTranscript('');
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      const response = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to transcribe audio');
+      }
+
+      setTranscript(data.transcription || '');
+    } catch (err: any) {
+      setError(err.message || 'Failed to transcribe audio file');
+    } finally {
+      setIsTranscribing(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -201,19 +244,41 @@ export default function Home() {
             <label htmlFor="transcript">
               Pitch Transcript <span style={{ color: 'red' }}>*</span>
             </label>
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
               {!isRecording ? (
-                <button
-                  type="button"
-                  onClick={startRecording}
-                  style={{
-                    background: '#10b981',
-                    padding: '0.5rem 1rem',
-                    fontSize: '0.9rem',
-                  }}
-                >
-                  🎤 Record Pitch
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    style={{
+                      background: '#10b981',
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    🎤 Record Pitch
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isTranscribing}
+                    style={{
+                      background: '#3b82f6',
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.9rem',
+                      opacity: isTranscribing ? 0.6 : 1,
+                    }}
+                  >
+                    {isTranscribing ? '⏳ Transcribing...' : '📁 Upload Audio File'}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                </>
               ) : (
                 <button
                   type="button"
