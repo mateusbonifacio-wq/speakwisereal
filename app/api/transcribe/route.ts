@@ -2,79 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeAudioEmotions } from '../../lib/audio-emotion-analysis';
 
 /**
- * Clean transcription by removing audio events in parentheses
- * Examples: "(thunder rumbling)" "(wind blowing)" "(birds chirping)" "(laughter)"
- */
-function cleanTranscription(text: string): string {
-  if (!text) return '';
-  
-  // Remove audio events in parentheses - these are environmental sounds, not speech
-  // Pattern matches: (word word), (single word), etc.
-  // But keep parentheses that might be part of actual speech (like "(company name)")
-  let cleaned = text;
-  
-  // Common audio event keywords that should be removed
-  const audioEventPatterns = [
-    /\(thunder\s+rumbling\)/gi,
-    /\(wind\s+blowing\)/gi,
-    /\(birds?\s+chirping\)/gi,
-    /\(laughter\)/gi,
-    /\(laughing\)/gi,
-    /\(applause\)/gi,
-    /\(clapping\)/gi,
-    /\(music\)/gi,
-    /\(background\s+music\)/gi,
-    /\(background\s+noise\)/gi,
-    /\(static\)/gi,
-    /\(phone\s+ringing\)/gi,
-    /\(door\s+slam\)/gi,
-    /\(door\s+slamming\)/gi,
-    /\(car\s+honking\)/gi,
-    /\(dog\s+barking\)/gi,
-    /\(siren\)/gi,
-    /\(airplane\)/gi,
-    /\(footsteps\)/gi,
-    /\(breathing\)/gi,
-    /\(sigh\)/gi,
-    /\(sighing\)/gi,
-    /\(cough\)/gi,
-    /\(coughing\)/gi,
-    /\(clearing\s+throat\)/gi,
-    /\([a-z]+\s+[a-z]+\s+[a-z]+\)/gi, // Generic pattern for multi-word audio events
-  ];
-  
-  // Remove all audio event patterns
-  audioEventPatterns.forEach(pattern => {
-    cleaned = cleaned.replace(pattern, '');
-  });
-  
-  // Remove any remaining isolated parentheses with common audio-related words
-  cleaned = cleaned.replace(/\s*\([^)]*(?:sound|noise|audio|event|environment|rumbling|blowing|chirping)[^)]*\)\s*/gi, '');
-  
-  // More aggressive: Remove any parentheses that contain only lowercase words (likely audio events)
-  // But keep parentheses with capital letters (likely proper nouns or speech)
-  cleaned = cleaned.replace(/\s*\(([a-z\s]+)\)\s*/g, (match, content) => {
-    // Check if it's likely an audio event (contains common audio keywords)
-    const audioKeywords = ['thunder', 'wind', 'bird', 'sound', 'noise', 'music', 'background'];
-    if (audioKeywords.some(keyword => content.toLowerCase().includes(keyword))) {
-      return ' '; // Replace with space
-    }
-    // If it's all lowercase and short, probably an audio event
-    if (content.length < 30 && /^[a-z\s]+$/.test(content)) {
-      return ' ';
-    }
-    return match; // Keep it if it might be speech
-  });
-  
-  // Clean up multiple spaces and trim
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
-  
-  return cleaned;
-}
-
-/**
  * Extract audio events from transcription text
- * Returns array of detected audio events
+ * Returns array of detected audio events (for metadata analysis)
  */
 function extractAudioEvents(text: string): string[] {
   if (!text) return [];
@@ -163,27 +92,35 @@ export async function POST(request: NextRequest) {
     
     // Extract transcription text from response
     // The API response structure may vary, so we handle different formats
-    let rawTranscription = '';
+    let transcription = '';
     if (result.text) {
-      rawTranscription = result.text;
+      transcription = result.text;
     } else if (result.transcription) {
-      rawTranscription = result.transcription;
+      transcription = result.transcription;
     } else if (typeof result === 'string') {
-      rawTranscription = result;
+      transcription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
       // If response has segments with timing and text
-      rawTranscription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
     } else {
-      rawTranscription = JSON.stringify(result);
+      transcription = JSON.stringify(result);
     }
 
-    // Clean transcription: Remove audio events that appear in parentheses
-    // ElevenLabs tags audio events like "(thunder rumbling) (wind blowing) (birds chirping)"
-    // We want to keep only the actual speech, not these environmental sounds
-    let transcription = cleanTranscription(rawTranscription);
+    // Only clean obvious environmental noise, keep speech events like "(chuckles)" and "(laughter)"
+    // These are part of the delivery and should be analyzed
+    transcription = transcription
+      // Remove only clear environmental sounds, keep speech-related events
+      .replace(/\s*\(thunder\s+rumbling\)\s*/gi, ' ')
+      .replace(/\s*\(wind\s+blowing\)\s*/gi, ' ')
+      .replace(/\s*\(birds?\s+chirping\)\s*/gi, ' ')
+      .replace(/\s*\(background\s+noise\)\s*/gi, ' ')
+      .replace(/\s*\(static\)\s*/gi, ' ')
+      // Keep (chuckles), (laughter), (applause) as they're part of delivery
+      .replace(/\s+/g, ' ')
+      .trim();
     
-    // Extract audio events separately (they might be in parentheses)
-    const audioEventsInText = extractAudioEvents(rawTranscription);
+    // Extract audio events for metadata
+    const audioEventsInText = extractAudioEvents(transcription);
 
     // Analyze audio features for emotion detection from the actual audio signal
     // This extracts acoustic features like pitch, energy, tempo, etc.
