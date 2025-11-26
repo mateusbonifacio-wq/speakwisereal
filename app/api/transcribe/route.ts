@@ -28,7 +28,12 @@ export async function POST(request: NextRequest) {
     const elevenLabsFormData = new FormData();
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
+
+    // Add optional parameters based on the Python example
     elevenLabsFormData.append('model_id', 'scribe_v1');
+    elevenLabsFormData.append('tag_audio_events', 'true');
+    elevenLabsFormData.append('language_code', 'eng');
+    elevenLabsFormData.append('diarize', 'true');
 
     // Call ElevenLabs Speech-to-Text API
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
@@ -50,49 +55,63 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription - simple extraction, try all common formats
+    // Extract transcription text from response
     let transcription = '';
-    
-    if (typeof result === 'string') {
-      transcription = result;
-    } else if (result.text) {
+    if (result.text) {
       transcription = result.text;
     } else if (result.transcription) {
       transcription = result.transcription;
-    } else if (result.transcript) {
-      transcription = result.transcript;
+    } else if (typeof result === 'string') {
+      transcription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
-      transcription = result.segments
-        .map((seg: any) => seg.text || seg.transcript || '')
-        .filter((t: string) => t)
-        .join(' ');
+      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+    } else {
+      transcription = JSON.stringify(result);
     }
 
-    // Simple emotion analysis from text
-    const fillerWords = (transcription.match(/\b(uh|um|er|ah|like|you know|so|well)\b/gi) || []).length;
-    const repetitions = (transcription.match(/\b(\w+)(?:\s+\1\b)+/gi) || []).length;
-    
+    // Extract emotional and audio metadata
+    const audioAnalysis = {
+      audioEvents: result.audio_events || result.events || [],
+      speakers: result.speakers || result.diarization || [],
+      speechPatterns: {
+        pauses: result.pauses || [],
+        pace: result.pace || result.speaking_rate || null,
+        volume: result.volume || result.energy || null,
+      },
+      segments: result.segments || [],
+      metadata: result.metadata || {}
+    };
+
+    // Analyze transcription patterns for emotions
     const emotionIndicators = {
-      fillerWords,
-      repetitions,
+      fillerWords: (transcription.match(/\b(uh|um|er|ah|like|you know|so|well)\b/gi) || []).length,
+      repetitions: (transcription.match(/\b(\w+)(?:\s+\1\b)+/gi) || []).length,
       questionMarks: (transcription.match(/\?/g) || []).length,
       exclamationMarks: (transcription.match(/!/g) || []).length,
       ellipsis: (transcription.match(/\.{2,}/g) || []).length,
       wordCount: transcription.split(/\s+/).filter(w => w.length > 0).length,
+      averageWordsPerSentence: transcription.split(/[.!?]+/).filter(s => s.trim().length > 0).length > 0 
+        ? transcription.split(/\s+/).filter(w => w.length > 0).length / transcription.split(/[.!?]+/).filter(s => s.trim().length > 0).length 
+        : 0
     };
 
+    // Detect emotional state based on patterns
     const emotionalState = {
-      nervousness: fillerWords > 3 || repetitions > 1,
-      hesitation: emotionIndicators.ellipsis > 1 || emotionIndicators.questionMarks > 0,
-      enthusiasm: emotionIndicators.exclamationMarks > 1,
-      fillerWordCount: fillerWords,
-      repetitionCount: repetitions
+      nervousness: emotionIndicators.fillerWords > 5 || emotionIndicators.repetitions > 2,
+      hesitation: emotionIndicators.ellipsis > 2 || emotionIndicators.questionMarks > emotionIndicators.exclamationMarks,
+      enthusiasm: emotionIndicators.exclamationMarks > 2,
+      rushed: emotionIndicators.averageWordsPerSentence > 25,
+      confidence: emotionIndicators.fillerWords < 2 && emotionIndicators.repetitions === 0 && emotionIndicators.questionMarks === 0,
+      fillerWordCount: emotionIndicators.fillerWords,
+      repetitionCount: emotionIndicators.repetitions
     };
 
     return NextResponse.json({ 
-      transcription: transcription || '',
+      transcription,
+      audioAnalysis,
       emotionIndicators,
-      emotionalState
+      emotionalState,
+      metadata: result.metadata || {}
     });
   } catch (error: any) {
     console.error('Error transcribing audio:', error);
