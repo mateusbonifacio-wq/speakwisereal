@@ -25,22 +25,17 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Create FormData for ElevenLabs API
-    // Based on the Python example, ElevenLabs expects a file upload
     const elevenLabsFormData = new FormData();
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
 
-    // Add optional parameters based on the Python example
-    // These parameters enable emotion detection and audio analysis
+    // Add optional parameters
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    elevenLabsFormData.append('tag_audio_events', 'true'); // Tags laughter, applause, etc.
+    elevenLabsFormData.append('tag_audio_events', 'true');
     elevenLabsFormData.append('language_code', 'eng');
-    elevenLabsFormData.append('diarize', 'true'); // Speaker diarization
-    // Add parameter to get more detailed audio analysis
-    elevenLabsFormData.append('include_audio_features', 'true');
+    elevenLabsFormData.append('diarize', 'true');
 
     // Call ElevenLabs Speech-to-Text API
-    // Note: The endpoint might be different, check ElevenLabs docs
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
       headers: {
@@ -60,8 +55,7 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text from response
-    // The API response structure may vary, so we handle different formats
+    // Extract transcription text from response - simple extraction
     let transcription = '';
     if (result.text) {
       transcription = result.text;
@@ -70,7 +64,6 @@ export async function POST(request: NextRequest) {
     } else if (typeof result === 'string') {
       transcription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
-      // If response has segments with timing and text
       transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
     } else {
       transcription = JSON.stringify(result);
@@ -78,23 +71,14 @@ export async function POST(request: NextRequest) {
 
     // Extract emotional and audio metadata
     const audioAnalysis = {
-      // Audio events (laughter, applause, etc.)
       audioEvents: result.audio_events || result.events || [],
-      
-      // Speaker diarization (if multiple speakers)
       speakers: result.speakers || result.diarization || [],
-      
-      // Speech patterns (pauses, pace indicators)
       speechPatterns: {
         pauses: result.pauses || [],
         pace: result.pace || result.speaking_rate || null,
         volume: result.volume || result.energy || null,
       },
-      
-      // Segments with timing (to analyze pace and pauses)
       segments: result.segments || [],
-      
-      // Original metadata
       metadata: result.metadata || {}
     };
 
