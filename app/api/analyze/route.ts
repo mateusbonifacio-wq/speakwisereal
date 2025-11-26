@@ -217,7 +217,8 @@ General rules and style guidelines:
       }
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Try different model names - gemini-1.5-pro is the most commonly available
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
 
