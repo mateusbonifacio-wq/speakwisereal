@@ -22,7 +22,25 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    
+    // Try different model names
+    const modelNames = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'];
+    let model;
+    
+    for (const modelName of modelNames) {
+      try {
+        model = genAI.getGenerativeModel({ model: modelName });
+        const testResult = await model.generateContent('test');
+        await testResult.response;
+        break;
+      } catch (err) {
+        continue;
+      }
+    }
+    
+    if (!model) {
+      throw new Error('No available Gemini models found. Please check your API key.');
+    }
 
     const prompt = `You are a context extraction assistant. Extract structured information about a pitch context from the following user description.
 
