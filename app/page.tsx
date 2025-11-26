@@ -157,6 +157,12 @@ export default function Home() {
       if (englishLevel) context.english_level = englishLevel;
       if (toneStyle) context.tone_style = toneStyle;
       if (constraints) context.constraints = constraints;
+      if (notesFromUser) context.notes_from_user = notesFromUser;
+
+      const sessionInfo: any = {};
+      if (wantsDeploySuggestions) {
+        sessionInfo.wants_deploy_suggestions = true;
+      }
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -166,6 +172,7 @@ export default function Home() {
         body: JSON.stringify({
           transcript,
           context: Object.keys(context).length > 0 ? context : undefined,
+          session_info: Object.keys(sessionInfo).length > 0 ? sessionInfo : undefined,
         }),
       });
 
@@ -352,6 +359,30 @@ export default function Home() {
                   onChange={(e) => setConstraints(e.target.value)}
                   placeholder="e.g., No jargon, Non-native audience, Max 1 minute"
                 />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label htmlFor="notesFromUser" style={{ fontSize: '0.9rem', fontWeight: 400 }}>
+                  Additional Notes
+                </label>
+                <input
+                  type="text"
+                  id="notesFromUser"
+                  value={notesFromUser}
+                  onChange={(e) => setNotesFromUser(e.target.value)}
+                  placeholder="e.g., This is my first attempt, I'm nervous, I want something punchy"
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  id="wantsDeploySuggestions"
+                  checked={wantsDeploySuggestions}
+                  onChange={(e) => setWantsDeploySuggestions(e.target.checked)}
+                  style={{ width: 'auto' }}
+                />
+                <label htmlFor="wantsDeploySuggestions" style={{ fontSize: '0.9rem', fontWeight: 400, margin: 0 }}>
+                  Include deploy/sharing suggestions (title, description, tags)
+                </label>
               </div>
             </div>
           </div>
