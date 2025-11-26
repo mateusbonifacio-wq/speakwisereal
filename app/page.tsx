@@ -42,6 +42,12 @@ export default function Home() {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
+      if (contextTimerRef.current) {
+        clearInterval(contextTimerRef.current);
+      }
+      if (contextMediaRecorderRef.current && contextMediaRecorderRef.current.state !== 'inactive') {
+        contextMediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
