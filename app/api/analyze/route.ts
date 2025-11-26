@@ -217,13 +217,36 @@ General rules and style guidelines:
       }
     }
 
-    // Try different model names in order of preference
-    const modelNames = [
+    // First, try to get available models from the API
+    let modelNames = [
       'gemini-1.5-pro',
       'gemini-1.5-flash', 
       'gemini-pro',
       'gemini-1.0-pro'
     ];
+    
+    // Try to fetch available models from API
+    try {
+      const modelsResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
+      );
+      if (modelsResponse.ok) {
+        const modelsData = await modelsResponse.json();
+        const availableModelNames = (modelsData.models || [])
+          .filter((m: any) => 
+            m.supportedGenerationMethods?.includes('generateContent') ||
+            m.supportedGenerationMethods?.includes('generateContentStream')
+          )
+          .map((m: any) => m.name.replace('models/', ''));
+        
+        if (availableModelNames.length > 0) {
+          modelNames = availableModelNames;
+          console.log(`Found available models: ${modelNames.join(', ')}`);
+        }
+      }
+    } catch (err) {
+      console.log('Could not fetch model list, using defaults');
+    }
     
     let model;
     let modelError: any = null;
@@ -248,7 +271,11 @@ General rules and style guidelines:
       throw new Error(
         `No available Gemini models found. Tried: ${modelNames.join(', ')}. ` +
         `Last error: ${modelError?.message || 'Unknown'}. ` +
-        `Please verify your API key has access to Gemini models at https://makersuite.google.com/app/apikey`
+        `\n\nTroubleshooting:\n` +
+        `1. Verify your API key at https://makersuite.google.com/app/apikey\n` +
+        `2. Make sure you're using a Google AI Studio API key (not Vertex AI)\n` +
+        `3. Check that your API key has access to Gemini models\n` +
+        `4. Visit /api/list-models to see which models are available with your key`
       );
     }
 

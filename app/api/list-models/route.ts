@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,38 +10,55 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Try to list available models
-    // Note: The SDK might not have a direct listModels method, so we'll test common models
-    const modelsToTest = [
-      'gemini-1.5-pro',
-      'gemini-1.5-flash',
-      'gemini-pro',
-      'gemini-1.0-pro',
-      'models/gemini-1.5-pro',
-      'models/gemini-pro'
-    ];
+    // Try to list models directly from the API
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-    const availableModels: string[] = [];
-
-    for (const modelName of modelsToTest) {
-      try {
-        const model = genAI.getGenerativeModel({ model: modelName });
-        // Try a minimal test
-        const result = await model.generateContent('Hi');
-        await result.response;
-        availableModels.push(modelName);
-      } catch (err: any) {
-        // Model not available, skip
-        console.log(`Model ${modelName} not available: ${err.message}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        return NextResponse.json({
+          error: `Failed to list models: ${response.status} ${response.statusText}`,
+          details: errorText,
+          suggestion: 'Please verify your API key is valid and has access to Gemini models'
+        }, { status: response.status });
       }
-    }
 
-    return NextResponse.json({ 
-      availableModels,
-      recommended: availableModels[0] || 'none'
-    });
+      const data = await response.json();
+      const models = data.models || [];
+      
+      // Filter models that support generateContent
+      const availableModels = models
+        .filter((m: any) => 
+          m.supportedGenerationMethods?.includes('generateContent') ||
+          m.supportedGenerationMethods?.includes('generateContentStream')
+        )
+        .map((m: any) => m.name.replace('models/', ''));
+
+      return NextResponse.json({ 
+        availableModels,
+        allModels: models.map((m: any) => ({
+          name: m.name,
+          displayName: m.displayName,
+          supportedMethods: m.supportedGenerationMethods
+        })),
+        recommended: availableModels[0] || 'none',
+        apiKeyPrefix: apiKey.substring(0, 10) + '...' // Show first 10 chars for debugging
+      });
+    } catch (fetchError: any) {
+      return NextResponse.json({
+        error: 'Failed to fetch models from API',
+        details: fetchError.message,
+        suggestion: 'Check your API key and network connection'
+      }, { status: 500 });
+    }
   } catch (error: any) {
     console.error('Error listing models:', error);
     return NextResponse.json(
