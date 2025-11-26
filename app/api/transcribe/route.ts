@@ -25,17 +25,22 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(arrayBuffer);
 
     // Create FormData for ElevenLabs API
+    // Based on the Python example, ElevenLabs expects a file upload
     const elevenLabsFormData = new FormData();
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
 
     // Add optional parameters based on the Python example
+    // These parameters enable emotion detection and audio analysis
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    elevenLabsFormData.append('tag_audio_events', 'true');
+    elevenLabsFormData.append('tag_audio_events', 'true'); // Tags laughter, applause, etc.
     elevenLabsFormData.append('language_code', 'eng');
-    elevenLabsFormData.append('diarize', 'true');
+    elevenLabsFormData.append('diarize', 'true'); // Speaker diarization
+    // Add parameter to get more detailed audio analysis
+    elevenLabsFormData.append('include_audio_features', 'true');
 
     // Call ElevenLabs Speech-to-Text API
+    // Note: The endpoint might be different, check ElevenLabs docs
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
       headers: {
@@ -55,69 +60,41 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Debug: log the full response to understand format
-    console.log('ElevenLabs response keys:', Object.keys(result));
-    console.log('ElevenLabs response sample:', JSON.stringify(result).substring(0, 500));
-    
-    // Extract transcription text from response - try all possible formats
+    // Extract transcription text from response
+    // The API response structure may vary, so we handle different formats
     let transcription = '';
-    
-    // First try direct text fields
-    if (typeof result === 'string') {
-      transcription = result;
-    } else if (result.text && typeof result.text === 'string') {
+    if (result.text) {
       transcription = result.text;
-    } else if (result.transcription && typeof result.transcription === 'string') {
+    } else if (result.transcription) {
       transcription = result.transcription;
-    } else if (result.transcript && typeof result.transcript === 'string') {
-      transcription = result.transcript;
-    } 
-    // Try segments array - most common format
-    else if (result.segments && Array.isArray(result.segments) && result.segments.length > 0) {
-      // Extract text from each segment
-      const texts = result.segments
-        .map((seg: any) => {
-          // Try all possible text fields in segment
-          return seg.text || seg.transcript || seg.word || seg.content || '';
-        })
-        .filter((t: string) => t && t.trim().length > 0);
-      
-      transcription = texts.join(' ').trim();
-    }
-    // Try words array
-    else if (result.words && Array.isArray(result.words)) {
-      transcription = result.words
-        .map((w: any) => w.word || w.text || w.content || '')
-        .filter((w: string) => w && w.trim())
-        .join(' ')
-        .trim();
-    }
-    // Try nested formats
-    else if (result.data && typeof result.data === 'string') {
-      transcription = result.data;
-    } else if (result.data && result.data.text) {
-      transcription = result.data.text;
-    } else if (result.result && typeof result.result === 'string') {
-      transcription = result.result;
-    } else if (result.result && result.result.text) {
-      transcription = result.result.text;
-    }
-    
-    // If still empty, log the full structure for debugging
-    if (!transcription || transcription.length === 0) {
-      console.warn('Could not extract transcription. Full response:', JSON.stringify(result));
+    } else if (typeof result === 'string') {
+      transcription = result;
+    } else if (result.segments && Array.isArray(result.segments)) {
+      // If response has segments with timing and text
+      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+    } else {
+      transcription = JSON.stringify(result);
     }
 
     // Extract emotional and audio metadata
     const audioAnalysis = {
+      // Audio events (laughter, applause, etc.)
       audioEvents: result.audio_events || result.events || [],
+      
+      // Speaker diarization (if multiple speakers)
       speakers: result.speakers || result.diarization || [],
+      
+      // Speech patterns (pauses, pace indicators)
       speechPatterns: {
         pauses: result.pauses || [],
         pace: result.pace || result.speaking_rate || null,
         volume: result.volume || result.energy || null,
       },
+      
+      // Segments with timing (to analyze pace and pauses)
       segments: result.segments || [],
+      
+      // Original metadata
       metadata: result.metadata || {}
     };
 
