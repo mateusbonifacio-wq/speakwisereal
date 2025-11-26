@@ -208,10 +208,26 @@ General rules and style guidelines:
 - Use Markdown headings and bullet points exactly as requested for readability.
 - Never apologize for giving critical feedback; frame it as helpful coaching for growth.`;
 
-    // Always analyze emotions from transcript, even if no audio data
+    // ALWAYS analyze emotions from transcript - this is critical for emotional feedback
     const analyzeEmotionsFromText = (text: string) => {
-      const fillerWords = (text.match(/\b(uh|um|er|ah|like|you know|so|well)\b/gi) || []).length;
-      const repetitions = (text.match(/\b(\w+)(?:\s+\1\b)+/gi) || []).length;
+      // Count filler words (common indicators of nervousness)
+      const fillerWordsList = ['uh', 'um', 'er', 'ah', 'like', 'you know', 'so', 'well', 'actually', 'basically', 'literally'];
+      let fillerWords = 0;
+      fillerWordsList.forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+        const matches = text.match(regex);
+        fillerWords += matches ? matches.length : 0;
+      });
+      
+      // Find repetitions (same word/phrase repeated)
+      const words = text.toLowerCase().split(/\s+/);
+      let repetitions = 0;
+      for (let i = 0; i < words.length - 1; i++) {
+        if (words[i] === words[i + 1] && words[i].length > 2) {
+          repetitions++;
+        }
+      }
+      
       const questionMarks = (text.match(/\?/g) || []).length;
       const exclamationMarks = (text.match(/!/g) || []).length;
       const ellipsis = (text.match(/\.{2,}/g) || []).length;
@@ -219,23 +235,30 @@ General rules and style guidelines:
       const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
       const avgWordsPerSentence = sentences.length > 0 ? wordCount / sentences.length : 0;
       
+      // Detect uncertainty markers
+      const uncertaintyMarkers = (text.match(/\b(maybe|perhaps|might|could|i think|i guess|sort of|kind of)\b/gi) || []).length;
+      
       return {
         fillerWords,
         repetitions,
         questionMarks,
         exclamationMarks,
         ellipsis,
+        uncertaintyMarkers,
         wordCount,
         avgWordsPerSentence,
-        nervousness: fillerWords > 5 || repetitions > 2,
-        hesitation: ellipsis > 2 || questionMarks > exclamationMarks,
-        enthusiasm: exclamationMarks > 2,
-        rushed: avgWordsPerSentence > 25,
-        confidence: fillerWords < 2 && repetitions === 0 && questionMarks === 0
+        nervousness: fillerWords > 3 || repetitions > 1 || uncertaintyMarkers > 2,
+        hesitation: ellipsis > 1 || questionMarks > 1 || uncertaintyMarkers > 2,
+        enthusiasm: exclamationMarks > 1,
+        rushed: avgWordsPerSentence > 20,
+        confidence: fillerWords <= 2 && repetitions === 0 && questionMarks === 0 && uncertaintyMarkers === 0
       };
     };
 
     const textEmotions = analyzeEmotionsFromText(transcript);
+    
+    // Log emotions for debugging
+    console.log('Emotional analysis from transcript:', textEmotions);
 
     let userPrompt = `Please analyze this pitch transcript:\n\n${transcript}`;
     
