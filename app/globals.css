@@ -170,6 +170,15 @@ button:disabled {
   margin-top: 1rem;
 }
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 1rem;
