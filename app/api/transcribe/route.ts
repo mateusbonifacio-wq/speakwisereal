@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    // Don't specify language_code to allow automatic detection for multiple languages
 
     // Call ElevenLabs Speech-to-Text API
     const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
@@ -51,10 +50,9 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text - simple extraction, no filtering
+    // Extract transcription - simple extraction, try all common formats
     let transcription = '';
     
-    // Try all possible formats from ElevenLabs - don't filter anything
     if (typeof result === 'string') {
       transcription = result;
     } else if (result.text) {
@@ -64,22 +62,13 @@ export async function POST(request: NextRequest) {
     } else if (result.transcript) {
       transcription = result.transcript;
     } else if (result.segments && Array.isArray(result.segments)) {
-      // Get all text from segments - don't filter anything
       transcription = result.segments
         .map((seg: any) => seg.text || seg.transcript || '')
-        .filter((text: string) => text && text.trim())
-        .join(' ')
-        .trim();
-    } else if (result.words && Array.isArray(result.words)) {
-      transcription = result.words.map((w: any) => w.word || w.text || '').join(' ').trim();
-    }
-    
-    // Just clean up extra spaces, don't remove any content
-    if (transcription) {
-      transcription = transcription.replace(/\s+/g, ' ').trim();
+        .filter((t: string) => t)
+        .join(' ');
     }
 
-    // Simple emotion analysis from text only
+    // Simple emotion analysis from text
     const fillerWords = (transcription.match(/\b(uh|um|er|ah|like|you know|so|well)\b/gi) || []).length;
     const repetitions = (transcription.match(/\b(\w+)(?:\s+\1\b)+/gi) || []).length;
     
@@ -100,20 +89,11 @@ export async function POST(request: NextRequest) {
       repetitionCount: repetitions
     };
 
-    // Always return transcription, even if empty (so frontend knows request completed)
-    const responseData = { 
+    return NextResponse.json({ 
       transcription: transcription || '',
       emotionIndicators,
       emotionalState
-    };
-    
-    console.log('Returning transcription response:', {
-      transcriptionLength: transcription.length,
-      hasTranscription: !!transcription,
-      emotionIndicators
     });
-    
-    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('Error transcribing audio:', error);
     return NextResponse.json(
@@ -122,4 +102,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
