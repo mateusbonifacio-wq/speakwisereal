@@ -4,6 +4,7 @@ An AI-powered pitch and communication coaching application that analyzes your pi
 
 ## Features
 
+- **🎤 Voice Recording**: Record your pitch directly in the browser with real-time speech-to-text transcription
 - **Comprehensive Pitch Analysis**: Get detailed feedback on clarity, structure, persuasiveness, and more
 - **Structured Feedback**: Receive feedback in a clear format with scores, strengths, improvements, and concrete suggestions
 - **Context-Aware**: Provide optional context about your audience, goal, and duration for tailored feedback
@@ -78,7 +79,10 @@ git push -u origin main
 
 ## Usage
 
-1. **Enter your pitch transcript**: Paste or type your pitch transcript in the text area
+1. **Enter your pitch transcript**: 
+   - **Option 1**: Click "🎤 Record Pitch" to record your pitch using your microphone (speech-to-text transcription)
+   - **Option 2**: Paste or type your pitch transcript in the text area
+   - The app uses your browser's built-in speech recognition (works in Chrome, Edge, Safari)
 2. **Add optional context** (recommended):
    - **Audience**: Who you're pitching to (e.g., "Investors", "Job interviewers")
    - **Goal**: What you want to achieve (e.g., "Secure funding", "Get hired")
