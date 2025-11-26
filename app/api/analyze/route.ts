@@ -315,7 +315,7 @@ General rules and style guidelines:
       }
     }
     
-    userPrompt += `\nIMPORTANT: Use this emotional analysis to provide specific, empathetic feedback about the speaker's emotional state and delivery. Help them understand their nervousness, hesitation, or confidence levels and provide actionable strategies to improve.`;
+    userPrompt += `\n\nCRITICAL INSTRUCTION: The emotional analysis above shows the speaker's actual emotional state based on their speech patterns. You MUST use this information in your feedback. In the "Emotional & Delivery Analysis" section, reference these specific findings and provide empathetic, supportive coaching. Don't just mention emotions in passing—make it a central part of your feedback to help them improve their delivery and overcome nervousness or hesitation.`;
 
     if (context) {
       userPrompt += `\n\nContext:\n`;
