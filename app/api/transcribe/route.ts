@@ -51,38 +51,39 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Debug: log the result structure
-    console.log('ElevenLabs response:', JSON.stringify(result).substring(0, 500));
-    
-    // Extract transcription text - handle all possible formats
+    // Extract transcription text - simple extraction from ElevenLabs response
     let transcription = '';
-    if (typeof result === 'string') {
-      transcription = result;
-    } else if (result.text) {
+    
+    // Try common response formats from ElevenLabs
+    if (result.text) {
       transcription = result.text;
     } else if (result.transcription) {
       transcription = result.transcription;
-    } else if (result.transcript) {
-      transcription = result.transcript;
+    } else if (typeof result === 'string') {
+      transcription = result;
     } else if (result.segments && Array.isArray(result.segments)) {
+      // Extract from segments array - this is likely the format ElevenLabs uses
       transcription = result.segments
-        .map((seg: any) => seg.text || seg.transcript || seg.word || '')
+        .filter((seg: any) => seg.text || seg.transcript)
+        .map((seg: any) => {
+          const text = seg.text || seg.transcript || '';
+          // Skip audio event segments - only get actual speech
+          if (text.match(/^\([a-z\s]+\)$/i) && !text.match(/^(laughs?|chuckles?|sighs?|applause)$/i)) {
+            return '';
+          }
+          return text;
+        })
         .filter((text: string) => text.trim())
         .join(' ');
-    } else if (result.words && Array.isArray(result.words)) {
-      transcription = result.words.map((w: any) => w.word || w.text || '').join(' ');
-    } else {
-      // Last resort: try to find any text field
-      transcription = result.text || result.transcription || result.transcript || '';
-      if (!transcription && typeof result === 'object') {
-        console.warn('Unexpected ElevenLabs response format:', Object.keys(result));
-        transcription = '';
-      }
     }
     
-    // Ensure we have a string
-    if (typeof transcription !== 'string') {
-      transcription = String(transcription || '');
+    // Clean up transcription - remove audio event markers but keep speech
+    if (transcription) {
+      // Remove standalone audio events like "(thunder rumbling)" but keep speech
+      transcription = transcription.replace(/\s*\(thunder\s+rumbling\)\s*/gi, ' ');
+      transcription = transcription.replace(/\s*\(wind\s+blowing\)\s*/gi, ' ');
+      transcription = transcription.replace(/\s*\(birds?\s+chirping\)\s*/gi, ' ');
+      transcription = transcription.replace(/\s+/g, ' ').trim();
     }
 
     // Simple emotion analysis from text only
