@@ -54,61 +54,27 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Log full response to debug what ElevenLabs is actually returning
-    console.log('ElevenLabs full response:', JSON.stringify(result, null, 2));
-    console.log('Response keys:', Object.keys(result));
-    if (result.segments) {
-      console.log('Segments sample:', JSON.stringify(result.segments.slice(0, 3), null, 2));
-    }
-    
-    // Extract transcription text - comprehensive extraction
+    // Extract transcription text - ElevenLabs returns text in result.text
     let transcription = '';
     
-    // Priority 1: Direct string or text field
-    if (typeof result === 'string') {
+    // ElevenLabs returns the transcription directly in result.text field
+    if (result.text && typeof result.text === 'string') {
+      transcription = result.text;
+    } else if (typeof result === 'string') {
       transcription = result;
-    } else if (result.text) {
-      transcription = String(result.text);
     } else if (result.transcription) {
       transcription = String(result.transcription);
-    }
-    
-    // Priority 2: Extract from segments (most common format)
-    if (!transcription && result.segments && Array.isArray(result.segments)) {
-      const allTexts: string[] = [];
-      
-      for (const seg of result.segments) {
-        // Try every possible field that might contain text
-        const text = seg.text || seg.transcript || seg.word || seg.content || 
-                     seg.speech || seg.utterance || seg.sentence || '';
-        
-        if (text && typeof text === 'string' && text.trim()) {
-          // Only add if it's actual speech text, not audio events
-          const cleanText = String(text).trim();
-          if (cleanText.length > 0 && !cleanText.match(/^\([^)]+\)$/)) {
-            allTexts.push(cleanText);
-          }
-        }
-      }
-      
-      transcription = allTexts.join(' ').trim();
-    }
-    
-    // Priority 3: Extract from words array
-    if (!transcription && result.words && Array.isArray(result.words)) {
-      transcription = result.words
-        .map((w: any) => w.word || w.text || w.content || '')
-        .filter((w: any) => w && String(w).trim())
+    } else if (result.segments && Array.isArray(result.segments)) {
+      // Fallback: extract from segments if text field not available
+      transcription = result.segments
+        .map((seg: any) => seg.text || seg.transcript || '')
+        .filter((text: string) => text && text.trim())
         .join(' ')
         .trim();
     }
     
-    // Clean up the transcription
-    if (transcription) {
-      transcription = transcription.replace(/\s+/g, ' ').trim();
-    }
-    
-    console.log('Final transcription:', transcription);
+    // Ensure we have the full text
+    transcription = transcription || '';
 
     // Extract emotional and audio metadata
     const audioAnalysis = {
