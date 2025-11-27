@@ -30,14 +30,10 @@ export async function POST(request: NextRequest) {
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
 
-    // Add optional parameters based on the Python example
-    // These parameters enable emotion detection and audio analysis
+    // Add optional parameters - use only what's needed for transcription
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    elevenLabsFormData.append('tag_audio_events', 'true'); // Tags laughter, applause, etc.
-    elevenLabsFormData.append('language_code', 'eng');
-    elevenLabsFormData.append('diarize', 'true'); // Speaker diarization
-    // Add parameter to get more detailed audio analysis
-    elevenLabsFormData.append('include_audio_features', 'true');
+    // Removed problematic parameters that may interfere with transcription
+    // Keep it simple - just get the text
 
     // Call ElevenLabs Speech-to-Text API
     // Note: The endpoint might be different, check ElevenLabs docs
