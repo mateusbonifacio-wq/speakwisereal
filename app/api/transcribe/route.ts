@@ -30,10 +30,8 @@ export async function POST(request: NextRequest) {
     const blob = new Blob([buffer], { type: audioFile.type || 'audio/mpeg' });
     elevenLabsFormData.append('file', blob, audioFile.name);
 
-    // Add optional parameters - use only what's needed for transcription
+    // Minimal parameters - just the model
     elevenLabsFormData.append('model_id', 'scribe_v1');
-    // Removed problematic parameters that may interfere with transcription
-    // Keep it simple - just get the text
 
     // Call ElevenLabs Speech-to-Text API
     // Note: The endpoint might be different, check ElevenLabs docs
@@ -63,45 +61,54 @@ export async function POST(request: NextRequest) {
       console.log('Segments sample:', JSON.stringify(result.segments.slice(0, 3), null, 2));
     }
     
-    // Extract transcription text from response - try all possible formats
+    // Extract transcription text - comprehensive extraction
     let transcription = '';
     
-    // Try direct text fields first
+    // Priority 1: Direct string or text field
     if (typeof result === 'string') {
       transcription = result;
-    } else if (result.text && typeof result.text === 'string') {
-      transcription = result.text;
-    } else if (result.transcription && typeof result.transcription === 'string') {
-      transcription = result.transcription;
-    } 
-    // Try segments array
-    else if (result.segments && Array.isArray(result.segments) && result.segments.length > 0) {
-      // Extract text from each segment
-      const segmentTexts = result.segments
-        .map((seg: any) => {
-          // Try all possible text fields in segment
-          return seg.text || seg.transcript || seg.word || seg.content || '';
-        })
-        .filter((text: string) => text && text.trim().length > 0);
-      
-      transcription = segmentTexts.join(' ').trim();
+    } else if (result.text) {
+      transcription = String(result.text);
+    } else if (result.transcription) {
+      transcription = String(result.transcription);
     }
-    // Try words array if exists
-    else if (result.words && Array.isArray(result.words)) {
+    
+    // Priority 2: Extract from segments (most common format)
+    if (!transcription && result.segments && Array.isArray(result.segments)) {
+      const allTexts: string[] = [];
+      
+      for (const seg of result.segments) {
+        // Try every possible field that might contain text
+        const text = seg.text || seg.transcript || seg.word || seg.content || 
+                     seg.speech || seg.utterance || seg.sentence || '';
+        
+        if (text && typeof text === 'string' && text.trim()) {
+          // Only add if it's actual speech text, not audio events
+          const cleanText = String(text).trim();
+          if (cleanText.length > 0 && !cleanText.match(/^\([^)]+\)$/)) {
+            allTexts.push(cleanText);
+          }
+        }
+      }
+      
+      transcription = allTexts.join(' ').trim();
+    }
+    
+    // Priority 3: Extract from words array
+    if (!transcription && result.words && Array.isArray(result.words)) {
       transcription = result.words
         .map((w: any) => w.word || w.text || w.content || '')
-        .filter((w: string) => w && w.trim())
+        .filter((w: any) => w && String(w).trim())
         .join(' ')
         .trim();
     }
-    // Last resort - stringify
-    else {
-      console.warn('Could not find transcription in expected format. Full result:', JSON.stringify(result).substring(0, 500));
-      transcription = '';
+    
+    // Clean up the transcription
+    if (transcription) {
+      transcription = transcription.replace(/\s+/g, ' ').trim();
     }
     
-    console.log('Extracted transcription length:', transcription.length);
-    console.log('Transcription preview:', transcription.substring(0, 200));
+    console.log('Final transcription:', transcription);
 
     // Extract emotional and audio metadata
     const audioAnalysis = {
