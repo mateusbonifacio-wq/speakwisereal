@@ -54,26 +54,28 @@ export async function POST(request: NextRequest) {
 
     const result = await response.json();
     
-    // Extract transcription text - ElevenLabs returns text in result.text
+    // Extract transcription - ElevenLabs returns in result.text
     let transcription = '';
     
-    // ElevenLabs returns the transcription directly in result.text field
-    if (result.text && typeof result.text === 'string') {
-      transcription = result.text;
+    if (result.text) {
+      transcription = String(result.text);
     } else if (typeof result === 'string') {
       transcription = result;
     } else if (result.transcription) {
       transcription = String(result.transcription);
     } else if (result.segments && Array.isArray(result.segments)) {
-      // Fallback: extract from segments if text field not available
-      transcription = result.segments
-        .map((seg: any) => seg.text || seg.transcript || '')
-        .filter((text: string) => text && text.trim())
-        .join(' ')
+      transcription = result.segments.map((seg: any) => seg.text || seg.transcript || '').join(' ');
+    }
+    
+    // Remove audio event markers like "(Background noise)" but keep speech
+    if (transcription) {
+      transcription = transcription
+        .replace(/\s*\(Background noise\)\s*/gi, ' ')
+        .replace(/\s*\(background noise\)\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
         .trim();
     }
     
-    // Ensure we have the full text
     transcription = transcription || '';
 
     // Extract emotional and audio metadata
